@@ -52,7 +52,7 @@ class Chatbot(nn.Module):
 
         # This was important from their code. 
         # Initialize parameters with Glorot / fan_avg.
-        # only decoder params are initialized and trained (zzingae)
+        # only decoder params are randomly initialized and trained (zzingae)
         for p in self.decoder.parameters():
             if p.dim() > 1:
                 nn.init.xavier_uniform(p)

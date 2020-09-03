@@ -3,6 +3,7 @@ from torch.utils.data import Dataset
 from gluonnlp.data import SentencepieceTokenizer
 from kobert.utils import get_tokenizer
 import pandas as pd
+from transformer import subsequent_mask
 
 
 def padding_tokens(tokens, maxlen):
@@ -12,6 +13,7 @@ def padding_tokens(tokens, maxlen):
         return tokens + ['[PAD]' for _ in range(maxlen - len(tokens))] #Padding sentences
     else:
         return tokens[:maxlen-1] + ['[SEP]'] #Prunning the list to be of specified max length
+
 
 class QnADataset(Dataset):
     def __init__(self, filename, vocab, maxlen):
@@ -47,28 +49,31 @@ class QnADataset(Dataset):
         aids_tensor = torch.tensor(aids) #Converting the list to a pytorch tensor
 
         #Obtaining the attention mask i.e a tensor containing 1s for no padded tokens and 0s for padded ones
-        attn_mask = (qids_tensor != 0).long()
+        attn_mask = (qids_tensor != self.vocab.token_to_idx['[PAD]']).long()
+        attn_mask = attn_mask.view(1,self.maxlen).repeat(self.maxlen,1)
+
+        tgt_mask = torch.squeeze(subsequent_mask(self.maxlen))
 
         # seq, attn_masks, tgt, tgt_mask
-        return qids_tensor, attn_mask, aids_tensor
+        return qids_tensor, attn_mask, aids_tensor, tgt_mask
 
 
-class Batch:
-    "Object for holding a batch of data with mask during training."
-    def __init__(self, src, trg=None, pad=0):
-        self.src = src
-        self.src_mask = (src != pad).unsqueeze(-2)
-        if trg is not None:
-            self.trg = trg[:, :-1]
-            self.trg_y = trg[:, 1:]
-            self.trg_mask = \
-                self.make_std_mask(self.trg, pad)
-            self.ntokens = (self.trg_y != pad).data.sum()
+# class Batch:
+#     "Object for holding a batch of data with mask during training."
+#     def __init__(self, src, trg=None, pad=0):
+#         self.src = src
+#         self.src_mask = (src != pad).unsqueeze(-2)
+#         if trg is not None:
+#             self.trg = trg[:, :-1]
+#             self.trg_y = trg[:, 1:]
+#             self.trg_mask = \
+#                 self.make_std_mask(self.trg, pad)
+#             self.ntokens = (self.trg_y != pad).data.sum()
     
-    # @staticmethod
-    # def make_std_mask(tgt, pad):
-    #     "Create a mask to hide padding and future words."
-    #     tgt_mask = (tgt != pad).unsqueeze(-2)
-    #     tgt_mask = tgt_mask & Variable(
-    #         subsequent_mask(tgt.size(-1)).type_as(tgt_mask.data))
-    #     return tgt_mask
+#     @staticmethod
+#     def make_std_mask(tgt, pad):
+#         "Create a mask to hide padding and future words."
+#         tgt_mask = (tgt != pad).unsqueeze(-2)
+#         tgt_mask = tgt_mask & Variable(
+#             subsequent_mask(tgt.size(-1)).type_as(tgt_mask.data))
+#         return tgt_mask
