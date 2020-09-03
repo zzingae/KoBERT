@@ -28,7 +28,7 @@ def make_model(N=6, d_model=768, d_ff=1024, h=8, dropout=0.1):
 
 class Chatbot(nn.Module):
     # borrowed from:
-    # https://medium.com/swlh/painless-fine-tuning-of-bert-in-pytorch-b91c14912caa
+    # https://medium.com/swlh/painless-fine-tuning-of-bert-in-pytorch-b91c14912caa 
 
     def __init__(self, bert, decoder, src_embed, tgt_embed, generator, freeze_bert=True):
         super(Chatbot, self).__init__()

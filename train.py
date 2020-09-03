@@ -36,6 +36,7 @@ class NoamOpt:
             (self.model_size ** (-0.5) *
             min(step ** (-0.5), step * self.warmup ** (-1.5)))
 
+
 def get_std_opt(model):
     # std may mean standard (zzingae)
     # parameters with requires_grad=False will not be updated (zzingae)
@@ -81,23 +82,25 @@ def get_accuracy_from_logits(probs, labels):
 
 def train(model, train_loader, criterion, opti):
 
-    max_eps = 2
+    max_eps = 100
     gpu = 'cuda'
-    print_every = 10
+    print_every = 100
 
     for ep in range(max_eps):
         for it, (question, attn_masks, answer, tgt_mask) in enumerate(train_loader):
             #Clear gradients
             # opti.zero_grad()  
             #Converting these to cuda tensors
-            # question, attn_masks, answer = question.cuda(gpu), attn_masks.cuda(gpu), answer.cuda(gpu)
+            question, attn_masks, answer, tgt_mask = question.cuda(gpu), attn_masks.cuda(gpu), answer.cuda(gpu), tgt_mask.cuda(gpu)
+            tgt_input = answer[:,:-1]
+            tgt_output = answer[:,1:]
 
-            output = model(question, attn_masks, answer, tgt_mask)
+            output = model(question, attn_masks, tgt_input, tgt_mask)
             #Obtaining the log_prob after log_softmax (zzingae)
             log_prob = model.generator(output)
 
             #Computing loss
-            loss = crit(Variable(log_prob), Variable(answer))
+            loss = crit(Variable(log_prob), Variable(tgt_output))
 
             #Backpropagating the gradients
             # loss.backward()
@@ -107,11 +110,15 @@ def train(model, train_loader, criterion, opti):
             opti.step()
 
             if (it + 1) % print_every == 0:
-                acc = get_accuracy_from_logits(torch.exp(log_prob), answer)
+                acc = get_accuracy_from_logits(torch.exp(log_prob), tgt_output)
                 print("Iteration {} of epoch {} complete. Loss : {} Accuracy : {}".format(it+1, ep+1, loss.item(), acc))
 
 
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 model, vocab = make_model(3)
+model.to(device)
+# next(model.parameters()).device
+
 crit = LabelSmoothing(len(vocab), vocab.token_to_idx['[PAD]'], smoothing=0.4)
 opti = get_std_opt(model)
 # Creating instances of training and validation set
@@ -120,7 +127,7 @@ path='./data/ChatBotData.csv'
 train_set = QnADataset(path, vocab, maxlen)
 # train_Q, eval_Q, train_A, eval_A = train_test_split(question, answer, test_size=0.33, random_state=42)
 # Creating instances of training and validation dataloaders
-num_workers=5
+# , num_workers=5
 train_loader = DataLoader(train_set, batch_size = 64)
 # val_loader = DataLoader(val_set, batch_size = 64, num_workers = 5)
 

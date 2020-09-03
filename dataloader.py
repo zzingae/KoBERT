@@ -40,7 +40,7 @@ class QnADataset(Dataset):
         atoks = self.sp(answer)
 
         qtoks = padding_tokens(qtoks, self.maxlen)
-        atoks = padding_tokens(atoks, self.maxlen)
+        atoks = padding_tokens(atoks, self.maxlen+1)
 
         qids = [self.vocab.token_to_idx[t] for t in qtoks]
         qids_tensor = torch.tensor(qids) #Converting the list to a pytorch tensor
