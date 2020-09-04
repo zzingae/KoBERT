@@ -40,7 +40,8 @@ class Generator(nn.Module):
         self.proj = nn.Linear(d_model, vocab)
 
     def forward(self, x):
-        return F.log_softmax(self.proj(x), dim=-1)
+        # return F.log_softmax(self.proj(x), dim=-1)
+        return F.softmax(self.proj(x), dim=-1)
 
 def clones(module, N):
     "Produce N identical layers."

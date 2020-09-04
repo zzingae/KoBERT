@@ -80,57 +80,64 @@ def get_accuracy_from_logits(probs, labels):
     acc = (output == labels).float().mean()
     return acc
 
-def train(model, train_loader, criterion, opti):
+def train(device, model, vocab, train_loader, criterion, opti):
 
-    max_eps = 100
-    gpu = 'cuda'
+    max_eps = 1000
     print_every = 100
 
     for ep in range(max_eps):
         for it, (question, attn_masks, answer, tgt_mask) in enumerate(train_loader):
             #Clear gradients
-            # opti.zero_grad()  
+            opti.optimizer.zero_grad()  
             #Converting these to cuda tensors
-            question, attn_masks, answer, tgt_mask = question.cuda(gpu), attn_masks.cuda(gpu), answer.cuda(gpu), tgt_mask.cuda(gpu)
+            if not device.type=='cpu':
+                question, attn_masks, answer, tgt_mask = question.cuda(device), attn_masks.cuda(device), answer.cuda(device), tgt_mask.cuda(device)
             tgt_input = answer[:,:-1]
             tgt_output = answer[:,1:]
 
-            output = model(question, attn_masks, tgt_input, tgt_mask)
+            logits = model(question, attn_masks, tgt_input, tgt_mask)
             #Obtaining the log_prob after log_softmax (zzingae)
-            log_prob = model.generator(output)
-
+            print(logits)
+            print(torch.argmax(logits, dim=2))
             #Computing loss
-            loss = crit(Variable(log_prob), Variable(tgt_output))
+            # loss = criterion(logits.view(-1,len(vocab)), torch.flatten(tgt_output))
+            loss = criterion(logits, tgt_output)
 
             #Backpropagating the gradients
-            # loss.backward()
-            loss.requires_grad = True
+            # loss.requires_grad = True
+            loss.backward()
 
             #Optimization step
             opti.step()
 
             if (it + 1) % print_every == 0:
-                acc = get_accuracy_from_logits(torch.exp(log_prob), tgt_output)
+                acc = get_accuracy_from_logits(logits, tgt_output)
                 print("Iteration {} of epoch {} complete. Loss : {} Accuracy : {}".format(it+1, ep+1, loss.item(), acc))
 
 
-device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-model, vocab = make_model(3)
-model.to(device)
-# next(model.parameters()).device
+def main():
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    model, vocab = make_model(1)
+    model.to(device)
+    # next(model.parameters()).device
 
-crit = LabelSmoothing(len(vocab), vocab.token_to_idx['[PAD]'], smoothing=0.4)
-opti = get_std_opt(model)
-# Creating instances of training and validation set
-maxlen=10
-path='./data/ChatBotData.csv'
-train_set = QnADataset(path, vocab, maxlen)
-# train_Q, eval_Q, train_A, eval_A = train_test_split(question, answer, test_size=0.33, random_state=42)
-# Creating instances of training and validation dataloaders
-# , num_workers=5
-train_loader = DataLoader(train_set, batch_size = 64)
-# val_loader = DataLoader(val_set, batch_size = 64, num_workers = 5)
+    # criterion = nn.CrossEntropyLoss()
+    # opti = optim.Adam(model.parameters(), lr=1e-3)
+    criterion = LabelSmoothing(len(vocab), vocab.token_to_idx['[PAD]'], smoothing=0.4)
+    opti = get_std_opt(model)
 
-train(model, train_loader, crit, opti)
+    # Creating instances of training and validation set
+    maxlen=10
+    path='./data/ChatBotData.csv'
+    train_set = QnADataset(path, vocab, maxlen)
+    # train_Q, eval_Q, train_A, eval_A = train_test_split(question, answer, test_size=0.33, random_state=42)
+    # Creating instances of training and validation dataloaders
+    # , num_workers=5
+    train_loader = DataLoader(train_set, batch_size = 64)
+    # val_loader = DataLoader(val_set, batch_size = 64, num_workers = 5)
+
+    train(device, model, vocab, train_loader, criterion, opti)
 
 
+if __name__ == "__main__":
+    main()
