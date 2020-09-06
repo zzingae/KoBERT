@@ -43,11 +43,7 @@ class Chatbot(nn.Module):
         self.tgt_embed[0].lut.weight = self.bert.embeddings.word_embeddings.weight
         self.tgt_embed[0].lut.weight.requires_grad = False
         self.generator.proj.weight = self.bert.embeddings.word_embeddings.weight
-        self.generator.proj.weight.requires_grad = False
-
-        self.w_1 = nn.Linear(768, 3072)
-        self.w_2 = nn.Linear(3072, 768)
-        self.dropout = nn.Dropout(0.1)
+        # self.generator.proj.weight.requires_grad = False
 
         #Freeze bert layer
         if freeze_bert:
@@ -70,9 +66,5 @@ class Chatbot(nn.Module):
         #Feeding the input to BERT model to obtain contextualized representations
         cont_reps, _ = self.bert(seq, attention_mask = attn_masks)
 
-        # output = self.w_2(self.dropout(F.relu(self.w_1(cont_reps))))
-        # return self.decode(cont_reps, attn_masks, tgt, tgt_mask)
         output = self.decoder(self.tgt_embed(tgt), cont_reps, attn_masks, tgt_mask)
         return self.generator(output)
-    # def decode(self, memory, src_mask, tgt, tgt_mask):
-    #     return self.decoder(self.tgt_embed(tgt), memory, src_mask, tgt_mask)
