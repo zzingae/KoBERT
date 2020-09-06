@@ -97,8 +97,7 @@ def train(device, model, vocab, train_loader, criterion, opti):
 
             logits = model(question, attn_masks, tgt_input, tgt_mask)
             #Obtaining the log_prob after log_softmax (zzingae)
-            print(logits)
-            print(torch.argmax(logits, dim=2))
+
             #Computing loss
             # loss = criterion(logits.view(-1,len(vocab)), torch.flatten(tgt_output))
             loss = criterion(logits, tgt_output)
@@ -113,7 +112,8 @@ def train(device, model, vocab, train_loader, criterion, opti):
             if (it + 1) % print_every == 0:
                 acc = get_accuracy_from_logits(logits, tgt_output)
                 print("Iteration {} of epoch {} complete. Loss : {} Accuracy : {}".format(it+1, ep+1, loss.item(), acc))
-
+            # print(logits)
+                print(torch.argmax(logits, dim=2)[0:2])
 
 def main():
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -133,7 +133,7 @@ def main():
     # train_Q, eval_Q, train_A, eval_A = train_test_split(question, answer, test_size=0.33, random_state=42)
     # Creating instances of training and validation dataloaders
     # , num_workers=5
-    train_loader = DataLoader(train_set, batch_size = 64)
+    train_loader = DataLoader(train_set, batch_size = 64,shuffle=True)
     # val_loader = DataLoader(val_set, batch_size = 64, num_workers = 5)
 
     train(device, model, vocab, train_loader, criterion, opti)
