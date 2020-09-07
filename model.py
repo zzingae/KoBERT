@@ -58,11 +58,6 @@ class Chatbot(nn.Module):
                 nn.init.xavier_uniform(p)
 
     def forward(self, seq, attn_masks, tgt, tgt_mask):
-        '''
-        Inputs:
-            -seq : Tensor of shape [B, T] containing token ids of sequences
-            -attn_masks : Tensor of shape [B, T] containing attention masks to be used to avoid contibution of PAD tokens
-        '''
         #Feeding the input to BERT model to obtain contextualized representations
         cont_reps, _ = self.bert(seq, attention_mask = attn_masks)
 

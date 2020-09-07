@@ -2,34 +2,31 @@ import torch
 from model import make_model
 from gluonnlp.data import SentencepieceTokenizer
 from kobert.utils import get_tokenizer
+from kobert.pytorch_kobert import get_pytorch_kobert_model
+from utils import greedy_decode
 
-tmp_model, vocab = make_model(N=3)
+
+num_decoder_layers = 2
+model_path = './outputs/output-N2/step_130000.pth'
+model, vocab = make_model(num_decoder_layers)
+model.load_state_dict(torch.load(model_path)['model'])
+model.eval()
+
 sp  = SentencepieceTokenizer(get_tokenizer())
-T = 12
 
-sentence = '몇살이니?'
-#Step 1: Tokenize
-tokens = sp(sentence)
-#Step 2: Add [CLS] and [SEP]
+question = '바보야'
+max_len = 20
+
+tokens = sp(question)
 tokens = ['[CLS]'] + tokens + ['[SEP]']
-#Step 3: Pad tokens
-padded_tokens = tokens + ['[PAD]' for _ in range(T - len(tokens))]
-attn_mask = [1 if token != '[PAD]' else 0 for token in padded_tokens]
-#Step 4: Segment ids
-seg_ids = [0 for _ in range(len(padded_tokens))] #Optional!
-#Step 5: Get BERT vocabulary index for each token
-token_ids = [vocab.token_to_idx[tok] for tok in padded_tokens]
-# token_ids = tokenizer.convert_tokens_to_ids(padded_tokens)
+token_ids = [vocab.token_to_idx[tok] for tok in tokens]
+# unsqueeze(0) for Batch position (zzingae)
+token_ids = torch.tensor(token_ids).unsqueeze(0)
+# attention score: [Batch, Head, tgt_length, src_length] in src_attn (zzingae)
+# unsqueeze(1) for tgt_length position (zzingae)
+attn_mask = (token_ids != vocab.token_to_idx['[PAD]']).unsqueeze(1).long()
 
-#Converting everything to torch tensors before feeding them to bert_model
-token_ids = torch.tensor(token_ids).unsqueeze(0) #Shape : [1, 12]
-attn_mask = torch.tensor(attn_mask).unsqueeze(0) #Shape : [1, 12]
-seg_ids   = torch.tensor(seg_ids).unsqueeze(0) #Shape : [1, 12]
+answer = greedy_decode(model, token_ids, attn_mask, max_len, vocab)
 
-#Feed them to bert
-hidden_reps, cls_head = bert_model(token_ids, attention_mask = attn_mask,\
-                                  token_type_ids = seg_ids)
-print(hidden_reps.shape)
-#Out: torch.Size([1, 12, 768])
-print(cls_head.shape)
-#Out: torch.Size([1, 768])
+print('question: {}'.format(sp(question)))
+print('answer: '+''.join([vocab.idx_to_token[idx] for idx in answer[0,1:]]))
