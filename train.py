@@ -52,7 +52,7 @@ def evaluation(device, model, vocab, val_loader, criterion):
                 answer, tgt_mask = answer.cuda(device), tgt_mask.cuda(device)
             tgt_input = answer[:,:-1]
             tgt_output = answer[:,1:]
-
+            attn_masks = attn_masks.unsqueeze(1)
             #Obtaining the log_prob after log_softmax (zzingae)
             logits = model(question, attn_masks, tgt_input, tgt_mask)
 
