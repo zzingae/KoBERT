@@ -43,7 +43,7 @@ class Chatbot(nn.Module):
         self.tgt_embed[0].lut.weight = self.bert.embeddings.word_embeddings.weight
         self.tgt_embed[0].lut.weight.requires_grad = False
         self.generator.proj.weight = self.bert.embeddings.word_embeddings.weight
-        self.generator.proj.weight.requires_grad = False
+        # self.generator.proj.weight.requires_grad = False
 
         #Freeze bert layer
         if freeze_bert:
@@ -58,15 +58,8 @@ class Chatbot(nn.Module):
                 nn.init.xavier_uniform(p)
 
     def forward(self, seq, attn_masks, tgt, tgt_mask):
-        '''
-        Inputs:
-            -seq : Tensor of shape [B, T] containing token ids of sequences
-            -attn_masks : Tensor of shape [B, T] containing attention masks to be used to avoid contibution of PAD tokens
-        '''
         #Feeding the input to BERT model to obtain contextualized representations
         cont_reps, _ = self.bert(seq, attention_mask = attn_masks)
 
-        return self.decode(cont_reps, attn_masks, tgt, tgt_mask)
-
-    def decode(self, memory, src_mask, tgt, tgt_mask):
-        return self.decoder(self.tgt_embed(tgt), memory, src_mask, tgt_mask)
+        output = self.decoder(self.tgt_embed(tgt), cont_reps, attn_masks, tgt_mask)
+        return self.generator(output)
