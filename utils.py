@@ -32,7 +32,8 @@ def greedy_decode(model, src, src_mask, max_len, vocab):
         tgt_mask = subsequent_mask(ys.size(1)).type_as(src.data)
         output = model.decoder(model.tgt_embed(ys), memory, src_mask, Variable(tgt_mask))
         log_prob = model.generator(output)
-
+        # log prob can be used for greedy search but not for beam search (zzingae)
+        # because p(s1)p(s2|s1) > p(s*1)p(s*2|s*1) does not imply logp(s1)logp(s2|s1) > logp(s*1)logp(s*2|s*1)
         _, next_word = torch.max(log_prob, dim = 2)
         
         if next_word[0,i]==end_symbol:
