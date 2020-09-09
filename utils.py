@@ -16,6 +16,13 @@ def get_std_opt(model):
     return NoamOpt(model.tgt_embed[0].d_model, 2, 4000,
             torch.optim.Adam(model.parameters(), lr=0, betas=(0.9, 0.98), eps=1e-9))
 
+def get_my_opt(model, learning_rate, warmup_steps):
+    # customized optimization (zzingae)
+    # parameters with requires_grad=False will not be updated (zzingae)
+    # Here, Adam's lr=0 is dummy value. Instead, lr from NoamOpt is used (zzingae)
+    return NoamOpt(model.tgt_embed[0].d_model, learning_rate, warmup_steps,
+            torch.optim.Adam(model.parameters(), lr=0, betas=(0.9, 0.98), eps=1e-9))
+
 def subsequent_mask(size):
     "Mask out subsequent positions."
     attn_shape = (1, size, size)

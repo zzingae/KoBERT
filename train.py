@@ -4,7 +4,7 @@ from torch.utils.tensorboard import SummaryWriter
 import os
 from model import make_model
 from dataloader import QnADataset
-from utils import get_std_opt, NoamOpt, LabelSmoothing
+from utils import *
 # from nltk.translate.bleu_score import sentence_bleu
 
 
@@ -141,14 +141,15 @@ def main():
     model.to(device)
 
     criterion = LabelSmoothing(len(vocab), vocab.token_to_idx['[PAD]'], smoothing=label_smoothing)
-    opti = get_std_opt(model)
+    # opti = get_std_opt(model)
+    opti = get_my_opt(model,learning_rate=1,warmup_steps=4000)
 
     dataset = QnADataset(path, vocab, maxlen)
     train_val_ratio = [int(len(dataset)*train_portion)+1, int(len(dataset)*(1-train_portion))]
     train_set, val_set = random_split(dataset, train_val_ratio, 
                                       generator=torch.Generator().manual_seed(42))
     # Creating instances of training and validation dataloaders
-    train_loader = DataLoader(train_set, batch_size = train_batch_size, shuffle=True)
+    train_loader = DataLoader(train_set, batch_size = train_batch_size, shuffle=True, num_workers=5)
     val_loader = DataLoader(val_set, batch_size = 500)
     # val_loader = DataLoader(val_set, batch_size = 64, num_workers = 5)
 
