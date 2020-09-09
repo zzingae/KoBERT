@@ -66,9 +66,9 @@ def evaluation(device, model, vocab, val_loader, criterion):
 def train_val(device, model, vocab, train_loader, val_loader, criterion, opti, save_path):
 
     step=0
-    max_eps = 1000
+    max_eps = 200
     print_every = 100
-    save_every = 10000
+    save_every = 5000
 
     writer = SummaryWriter(save_path)
 
@@ -127,8 +127,11 @@ def main():
     maxlen=25
     path='./data/ChatBotData.csv'
     save_path='./output'
-    train_portion = 0.7
     label_smoothing = 0.4
+
+    # training data: 8377
+    # steps for one epoch: 130
+    train_portion = 0.7
     train_batch_size = 64
 
     if not os.path.exists(save_path):
