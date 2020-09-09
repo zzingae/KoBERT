@@ -6,15 +6,16 @@ from kobert.pytorch_kobert import get_pytorch_kobert_model
 from utils import greedy_decode
 
 
-num_decoder_layers = 2
-model_path = './outputs/output-N2/step_130000.pth'
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+num_decoder_layers = 3
+model_path = './chatbot-ckpt/step_130000.pth'
 model, vocab = make_model(num_decoder_layers)
-model.load_state_dict(torch.load(model_path)['model'])
+model.load_state_dict(torch.load(model_path, map_location=device)['model'])
 model.eval()
 
 sp  = SentencepieceTokenizer(get_tokenizer())
 
-question = '바보야'
+question = '안녕하세요'
 max_len = 20
 
 tokens = sp(question)
