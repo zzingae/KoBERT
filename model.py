@@ -39,11 +39,12 @@ class Chatbot(nn.Module):
         self.tgt_embed = tgt_embed
         self.generator = generator
         
-        # copy from pre-trained embedding layer and freeze (zzingae)
+        # share weights between tgt_embed and bert embeddding (zzingae)
+        # only copy weights from bert embedding to generator (zzingae)
         self.tgt_embed[0].lut.weight = self.bert.embeddings.word_embeddings.weight
+        self.generator.proj.weight = copy.deepcopy(self.bert.embeddings.word_embeddings.weight)
+        # tgt_embed and bert embed will be frozen while generator won't be (zzingae)
         self.tgt_embed[0].lut.weight.requires_grad = False
-        self.generator.proj.weight = self.bert.embeddings.word_embeddings.weight
-        # self.generator.proj.weight.requires_grad = False
 
         #Freeze bert layer
         if freeze_bert:
