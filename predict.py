@@ -8,7 +8,7 @@ from utils import greedy_decode
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 num_decoder_layers = 3
-model_path = './chatbot-ckpt/step_130000.pth'
+model_path = './output-LS1/step_130000.pth'
 model, vocab = make_model(num_decoder_layers)
 model.load_state_dict(torch.load(model_path, map_location=device)['model'])
 model.eval()

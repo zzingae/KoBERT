@@ -66,7 +66,7 @@ def evaluation(device, model, vocab, val_loader, criterion):
 def train_val(device, model, vocab, train_loader, val_loader, criterion, opti, save_path):
 
     step=0
-    max_eps = 200
+    max_eps = 500
     print_every = 100
     save_every = 5000
 
