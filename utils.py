@@ -29,25 +29,6 @@ def subsequent_mask(size):
     subsequent_mask = np.triu(np.ones(attn_shape), k=1).astype('uint8')
     return torch.from_numpy(subsequent_mask) == 0
 
-def greedy_decode(model, src, src_mask, max_len, vocab):
-    start_symbol = vocab.token_to_idx['[CLS]']
-    end_symbol = vocab.token_to_idx['[SEP]']
-
-    memory, _ = model.bert(src, src_mask)
-    ys = torch.ones(1, 1).fill_(start_symbol).type_as(src.data)
-    for i in range(max_len-1):
-        tgt_mask = subsequent_mask(ys.size(1)).type_as(src.data)
-        output = model.decoder(model.tgt_embed(ys), memory, src_mask, Variable(tgt_mask))
-        log_prob = model.generator(output)
-
-        _, next_word = torch.max(log_prob, dim = 2)
-        
-        if next_word[0,i]==end_symbol:
-            return ys
-        else:
-            ys = torch.cat([ys, torch.ones(1, 1).type_as(src.data).fill_(next_word[0,i])], dim=1)
-    return ys
-
 
 class NoamOpt:
     "Optim wrapper that implements rate."

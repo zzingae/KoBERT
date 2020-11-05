@@ -52,7 +52,7 @@ def evaluation(device, model, vocab, val_loader, criterion):
                 answer, tgt_mask = answer.cuda(device), tgt_mask.cuda(device)
             tgt_input = answer[:,:-1]
             tgt_output = answer[:,1:]
-            attn_masks = attn_masks.unsqueeze(1)
+
             #Obtaining the log_prob after log_softmax (zzingae)
             logits = model(question, attn_masks, tgt_input, tgt_mask)
 
@@ -84,17 +84,13 @@ def train_val(device, model, vocab, train_loader, val_loader, criterion, opti, s
 
             tgt_input = answer[:,:-1]
             tgt_output = answer[:,1:]
-            # attention score: [Batch, Head, tgt_length, src_length] in src_attn (zzingae)
-            # unsqueeze(1) for tgt_length position (zzingae)
-            attn_masks = attn_masks.unsqueeze(1)
-            #Obtaining the log_prob after log_softmax (zzingae)
+
             logits = model(question, attn_masks, tgt_input, tgt_mask)
 
             #Computing loss
             loss = criterion(logits, tgt_output)
 
             #Backpropagating the gradients
-            # loss.requires_grad = True
             loss.backward()
 
             #Optimization step
@@ -146,12 +142,10 @@ def main():
 
     dataset = QnADataset(path, vocab, maxlen)
     train_val_ratio = [int(len(dataset)*train_portion)+1, int(len(dataset)*(1-train_portion))]
-    train_set, val_set = random_split(dataset, train_val_ratio, 
-                                      generator=torch.Generator().manual_seed(42))
+    train_set, val_set = random_split(dataset, train_val_ratio)
     # Creating instances of training and validation dataloaders
     train_loader = DataLoader(train_set, batch_size = train_batch_size, shuffle=True, num_workers=5)
-    val_loader = DataLoader(val_set, batch_size = 500)
-    # val_loader = DataLoader(val_set, batch_size = 64, num_workers = 5)
+    val_loader = DataLoader(val_set, batch_size = 500, num_workers = 5)
 
     train_val(device, model, vocab, train_loader, val_loader, criterion, opti, save_path)
 

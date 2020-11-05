@@ -3,7 +3,7 @@ import torch.nn as nn
 from transformers import BertModel
 from kobert.pytorch_kobert import get_pytorch_kobert_model
 from transformer import *
-
+from utils import subsequent_mask
 
 def make_model(N=6, d_model=768, d_ff=1024, h=8, dropout=0.1):
     # To copy Bert embedding layer, d_model should be the same for Generator.
@@ -59,8 +59,34 @@ class Chatbot(nn.Module):
                 nn.init.xavier_uniform(p)
 
     def forward(self, seq, attn_masks, tgt, tgt_mask):
-        #Feeding the input to BERT model to obtain contextualized representations
+        # required attn_masks shape for BERT: [batch_size,sequence_length] (zzingae)
         cont_reps, _ = self.bert(seq, attention_mask = attn_masks)
+        # required attn_masks shape for decoder: [batch_size,1,sequence_length] (zzingae)
+        attn_masks = attn_masks.unsqueeze(1)
 
+        # attention score: [Batch, Head, tgt_length, src_length]
         output = self.decoder(self.tgt_embed(tgt), cont_reps, attn_masks, tgt_mask)
         return self.generator(output)
+
+    def greedy_decode(self, seq, attn_masks, max_len, vocab):
+        start_symbol = vocab.token_to_idx['[CLS]']
+        end_symbol = vocab.token_to_idx['[SEP]']
+
+        # required attn_masks shape for BERT: [batch_size,sequence_length] (zzingae)
+        cont_reps, _ = self.bert(seq, attention_mask = attn_masks)
+        # required attn_masks shape for decoder: [batch_size,1,sequence_length] (zzingae)
+        attn_masks = attn_masks.unsqueeze(1)
+        
+        ys = torch.ones(1, 1).fill_(start_symbol).type_as(seq.data)
+        for i in range(max_len-1):
+            tgt_mask = subsequent_mask(ys.size(1)).type_as(seq.data)
+            output = self.decoder(self.tgt_embed(ys), cont_reps, attn_masks, Variable(tgt_mask))
+            log_prob = self.generator(output)
+
+            _, next_word = torch.max(log_prob, dim = 2)
+            
+            if next_word[0,i]==end_symbol:
+                return ys
+            else:
+                ys = torch.cat([ys, torch.ones(1, 1).type_as(seq.data).fill_(next_word[0,i])], dim=1)
+        return ys
