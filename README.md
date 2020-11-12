@@ -4,6 +4,10 @@
 <img src="./imgs/architecture.png" alt="drawing" width="300"/> 
 </p>
 
+### Requirements
+
+CUDA 10.1
+
 ### 학습 데이터
 
 https://github.com/songys/Chatbot_data
