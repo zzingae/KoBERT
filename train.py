@@ -6,6 +6,7 @@ from model import make_model
 from dataloader import QnADataset
 from utils import *
 # from nltk.translate.bleu_score import sentence_bleu
+import argparse
 
 
 def get_accuracy(logits, labels, pad_id):
@@ -63,16 +64,15 @@ def evaluation(device, model, vocab, val_loader, criterion):
     model.train()
     return avg_loss/len(val_loader.dataset), avg_acc/len(val_loader.dataset)
 
-def train_val(device, model, vocab, train_loader, val_loader, criterion, opti, save_path):
+def train_val(device, model, vocab, train_loader, val_loader, criterion, opti, save_path, max_epochs):
 
     step=0
-    max_eps = 500
-    print_every = 100
-    save_every = 5000
+    print_every = 10
+    save_every = 500
 
     writer = SummaryWriter(save_path)
 
-    for epoch in range(max_eps):
+    for epoch in range(max_epochs):
 
         for _, (question, attn_masks, answer, tgt_mask) in enumerate(train_loader):
             #Clear gradients
@@ -117,38 +117,39 @@ def train_val(device, model, vocab, train_loader, val_loader, criterion, opti, s
     save_ckpt(model, opti, step+1, epoch+1, save_path)
 
 
-def main():
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    num_decoder_layers = 3
-    maxlen=25
-    path='./data/ChatBotData.csv'
-    save_path='./output'
-    label_smoothing = 0.4
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser()
 
-    # training data: 8377
-    # steps for one epoch: 130
-    train_portion = 0.7
-    train_batch_size = 64
+    parser.add_argument('--data_path', type=str, default='./data/ChatBotData.csv')
+    parser.add_argument('--num_decoder_layers', type=int, default=3)
+    parser.add_argument('--maxlen', type=int, default=25)
+    parser.add_argument('--batch_size', type=int, default=2500)
+    parser.add_argument('--num_workers', type=int, default=10)
+    parser.add_argument('--max_epochs', type=int, default=1000) # due to small number of training data, number of epochs set to be large.
+    
+    parser.add_argument('--label_smoothing', type=float, default=0.4)
+    parser.add_argument('--train_portion', type=float, default=0.7) # training data: 8377 if 0.7
+    parser.add_argument('--learning_rate', type=float, default=1.0)
 
-    if not os.path.exists(save_path):
-        os.mkdir(save_path)
+    args = parser.parse_args()
+    
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print("Device: {}".format(device))
 
-    model, vocab = make_model(num_decoder_layers)
-    model.to(device)
+    if not os.path.exists('./output'):
+        os.mkdir('./output')
 
-    criterion = LabelSmoothing(len(vocab), vocab.token_to_idx['[PAD]'], smoothing=label_smoothing)
+    model, vocab = make_model(args.num_decoder_layers)
     # opti = get_std_opt(model)
-    opti = get_my_opt(model,learning_rate=1,warmup_steps=4000)
+    opti = get_my_opt(model,learning_rate=args.learning_rate,warmup_steps=4000)
+    model = nn.DataParallel(model.to(device))
+    criterion = LabelSmoothing(len(vocab), vocab.token_to_idx['[PAD]'], smoothing=args.label_smoothing)
 
-    dataset = QnADataset(path, vocab, maxlen)
-    train_val_ratio = [int(len(dataset)*train_portion)+1, int(len(dataset)*(1-train_portion))]
+    dataset = QnADataset(args.data_path, vocab, args.maxlen)
+    train_val_ratio = [int(len(dataset)*args.train_portion)+1, int(len(dataset)*(1-args.train_portion))]
     train_set, val_set = random_split(dataset, train_val_ratio)
     # Creating instances of training and validation dataloaders
-    train_loader = DataLoader(train_set, batch_size = train_batch_size, shuffle=True, num_workers=5)
-    val_loader = DataLoader(val_set, batch_size = 500, num_workers = 5)
+    train_loader = DataLoader(train_set, batch_size = args.batch_size, shuffle=True, num_workers = args.num_workers)
+    val_loader = DataLoader(val_set, batch_size = args.batch_size, num_workers = args.num_workers)
 
-    train_val(device, model, vocab, train_loader, val_loader, criterion, opti, save_path)
-
-
-if __name__ == "__main__":
-    main()
+    train_val(device, model, vocab, train_loader, val_loader, criterion, opti, save_path='./output', max_epochs=args.max_epochs)
