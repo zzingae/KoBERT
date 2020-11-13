@@ -72,6 +72,8 @@ predefined_args = {
 
 #### Requirements
 
+**changed requirements for cuda 10.1 use (zzingae)**
+
 * Python >= 3.6
 * PyTorch >= 1.1.0
 * MXNet >= 1.4.0
