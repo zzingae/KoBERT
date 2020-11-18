@@ -126,6 +126,7 @@ if __name__ == "__main__":
     parser.add_argument('--batch_size', type=int, default=2500)
     parser.add_argument('--num_workers', type=int, default=10)
     parser.add_argument('--max_epochs', type=int, default=1000) # due to small number of training data, number of epochs set to be large.
+    parser.add_argument('--warmup_steps', type=int, default=4000) # due to small number of training data, number of epochs set to be large.
     
     parser.add_argument('--label_smoothing', type=float, default=0.4)
     parser.add_argument('--train_portion', type=float, default=0.7) # training data: 8377 if 0.7
@@ -141,7 +142,7 @@ if __name__ == "__main__":
 
     model, vocab = make_model(args.num_decoder_layers)
     # opti = get_std_opt(model)
-    opti = get_my_opt(model,learning_rate=args.learning_rate,warmup_steps=4000)
+    opti = get_my_opt(model,learning_rate=args.learning_rate,warmup_steps=args.warmup_steps)
     model = nn.DataParallel(model.to(device))
     criterion = LabelSmoothing(len(vocab), vocab.token_to_idx['[PAD]'], smoothing=args.label_smoothing)
 
