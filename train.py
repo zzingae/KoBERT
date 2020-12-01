@@ -64,15 +64,13 @@ def evaluation(device, model, vocab, val_loader, criterion):
     model.train()
     return avg_loss/len(val_loader.dataset), avg_acc/len(val_loader.dataset)
 
-def train_val(device, model, vocab, train_loader, val_loader, criterion, opti, save_path, max_epochs):
+def train_val(device, model, vocab, train_loader, val_loader, criterion, opti, save_path, args):
 
     step=0
     print_every = 10
-    save_every = 500
-
     writer = SummaryWriter(save_path)
 
-    for epoch in range(max_epochs):
+    for epoch in range(args.max_epochs):
 
         for _, (question, attn_masks, answer, tgt_mask) in enumerate(train_loader):
             #Clear gradients
@@ -106,7 +104,7 @@ def train_val(device, model, vocab, train_loader, val_loader, criterion, opti, s
                 print('logits A: '+''.join([vocab.idx_to_token[idx] for idx in torch.argmax(logits, dim=2)[0]]))
                 print('target A: '+''.join([vocab.idx_to_token[idx] for idx in tgt_output[0]]))
 
-            if (step + 1) % save_every == 0:
+            if (step + 1) % args.save_every == 0:
                 avg_loss, acc = evaluation(device, model, vocab, val_loader, criterion)
                 save_ckpt(model, opti, step+1, epoch+1, save_path)
                 write_summary(writer, {'loss': avg_loss, 'acc': acc}, step+1)
@@ -131,6 +129,7 @@ if __name__ == "__main__":
     parser.add_argument('--label_smoothing', type=float, default=0.4)
     parser.add_argument('--train_portion', type=float, default=0.7) # training data: 8377 if 0.7
     parser.add_argument('--learning_rate', type=float, default=1.0)
+    parser.add_argument('--save_every', type=int, default=500)
 
     args = parser.parse_args()
     
@@ -153,4 +152,4 @@ if __name__ == "__main__":
     train_loader = DataLoader(train_set, batch_size = args.batch_size, shuffle=True, num_workers = args.num_workers)
     val_loader = DataLoader(val_set, batch_size = args.batch_size, num_workers = args.num_workers)
 
-    train_val(device, model, vocab, train_loader, val_loader, criterion, opti, save_path='./output', max_epochs=args.max_epochs)
+    train_val(device, model, vocab, train_loader, val_loader, criterion, opti, save_path='./output', args=args)
