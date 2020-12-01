@@ -68,7 +68,7 @@ def train_val(device, model, vocab, train_loader, val_loader, criterion, opti, s
 
     step=0
     print_every = 10
-    save_every = 500
+    save_every = 1000
 
     writer = SummaryWriter(save_path)
 

@@ -34,9 +34,15 @@ class QnADataset(Dataset):
         #Selecting the sentence and label at the specified index in the data frame
         question = self.df.loc[index, 'Q']
         answer = self.df.loc[index, 'A']
-        # label = self.df.loc[index, 'label']
-
-        qtoks = self.sp(question)
+        emotion = self.df.loc[index, 'label']
+        # 일상다반서 0, 이별(부정) 1, 사랑(긍정) 2로 레이블링
+        if emotion==0:
+            emotion_word = '일상 '
+        elif emotion==1: # self.sp('이별') --> ['▁이', '별']
+            emotion_word = '부정 '
+        else:
+            emotion_word = '사랑 '
+        qtoks = self.sp(emotion_word + question)
         atoks = self.sp(answer)
 
         qtoks = padding_tokens(qtoks, self.maxlen)
