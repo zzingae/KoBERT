@@ -73,6 +73,11 @@ def train_val(device, model, vocab, train_loader, val_loader, criterion, opti, s
             # Clear gradients
             opti.optimizer.zero_grad()  
 
+            if not device.type=='cpu':
+                batch.src, batch.src_mask = batch.src.cuda(device), batch.src_mask.cuda(device)
+                batch.trg, batch.trg_mask = batch.trg.cuda(device), batch.trg_mask.cuda(device)
+                batch.trg_y = batch.trg_y.cuda(device)
+
             #Computing loss
             logits = model(batch.src, batch.src_mask, batch.trg, batch.trg_mask)
             loss = criterion(logits, batch.trg_y)
