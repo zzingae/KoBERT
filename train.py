@@ -49,11 +49,16 @@ def evaluation(device, model, vocab, val_loader, criterion):
         for _, (sources, targets) in enumerate(val_loader):
             batch =  Batch(sources, targets, vocab.token_to_idx['[PAD]'])
 
+            if not device.type=='cpu':
+                batch.src, batch.src_mask = batch.src.cuda(device), batch.src_mask.cuda(device)
+                batch.trg, batch.trg_mask = batch.trg.cuda(device), batch.trg_mask.cuda(device)
+                batch.trg_y = batch.trg_y.cuda(device)
+
             #Obtaining the log_prob after log_softmax (zzingae)
             logits = model(batch.src, batch.src_mask, batch.trg, batch.trg_mask)
 
             #accumulate loss and accuracy (zzingae)
-            avg_loss += criterion(logits, batch.trg_y)
+            avg_loss += (criterion(logits, batch.trg_y) / batch.ntokens) * batch.src.shape[0]
             avg_acc += get_accuracy(logits, batch.trg_y, vocab.token_to_idx['[PAD]']) * batch.src.shape[0]
 
     model.train()
@@ -80,8 +85,7 @@ def train_val(device, model, vocab, train_loader, val_loader, criterion, opti, s
 
             #Computing loss
             logits = model(batch.src, batch.src_mask, batch.trg, batch.trg_mask)
-            loss = criterion(logits, batch.trg_y)
-
+            loss = criterion(logits, batch.trg_y) / batch.ntokens
             #Backpropagating the gradients
             loss.backward()
 
@@ -90,10 +94,9 @@ def train_val(device, model, vocab, train_loader, val_loader, criterion, opti, s
 
             if (step + 1) % print_every == 0:
                 acc = get_accuracy(logits, batch.trg_y, vocab.token_to_idx['[PAD]'])
-                avg_loss = loss.item() / batch.src.shape[0]
-                write_summary(writer, {'loss': avg_loss, 'acc': acc, 'lr': opti._rate}, step+1)
+                write_summary(writer, {'loss': loss, 'acc': acc, 'lr': opti._rate}, step+1)
 
-                print("Iteration {} of epoch {} complete. Loss : {} Accuracy : {}".format(step+1, epoch+1, avg_loss, acc))
+                print("Iteration {} of epoch {} complete. Loss : {} Accuracy : {}".format(step+1, epoch+1, loss, acc))
                 print('Q: '+''.join([vocab.idx_to_token[idx] for idx in batch.src[0]]))
                 print('logits A: '+''.join([vocab.idx_to_token[idx] for idx in torch.argmax(logits, dim=2)[0]]))
                 print('target A: '+''.join([vocab.idx_to_token[idx] for idx in batch.trg_y[0]]))
