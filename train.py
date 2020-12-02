@@ -46,20 +46,15 @@ def evaluation(device, model, vocab, val_loader, criterion):
     avg_loss = 0
     avg_acc = 0
     with torch.no_grad():
-        for it, (question, attn_masks, answer, tgt_mask) in enumerate(val_loader):
-
-            if not device.type=='cpu':
-                question, attn_masks = question.cuda(device), attn_masks.cuda(device)
-                answer, tgt_mask = answer.cuda(device), tgt_mask.cuda(device)
-            tgt_input = answer[:,:-1]
-            tgt_output = answer[:,1:]
+        for _, (sources, targets) in enumerate(val_loader):
+            batch =  Batch(sources, targets, vocab.token_to_idx['[PAD]'])
 
             #Obtaining the log_prob after log_softmax (zzingae)
-            logits = model(question, attn_masks, tgt_input, tgt_mask)
+            logits = model(batch.src, batch.src_mask, batch.trg, batch.trg_mask)
 
             #accumulate loss and accuracy (zzingae)
-            avg_loss += criterion(logits, tgt_output)
-            avg_acc += get_accuracy(logits, tgt_output, vocab.token_to_idx['[PAD]']) * question.shape[0]
+            avg_loss += criterion(logits, batch.trg_y)
+            avg_acc += get_accuracy(logits, batch.trg_y, vocab.token_to_idx['[PAD]']) * batch.src.shape[0]
 
     model.train()
     return avg_loss/len(val_loader.dataset), avg_acc/len(val_loader.dataset)
@@ -72,21 +67,15 @@ def train_val(device, model, vocab, train_loader, val_loader, criterion, opti, s
 
     for epoch in range(args.max_epochs):
 
-        for _, (question, attn_masks, answer, tgt_mask) in enumerate(train_loader):
-            #Clear gradients
+        for _, (sources, targets) in enumerate(train_loader):
+            batch =  Batch(sources, targets, vocab.token_to_idx['[PAD]'])
+
+            # Clear gradients
             opti.optimizer.zero_grad()  
-            #Converting these to cuda tensors
-            if not device.type=='cpu':
-                question, attn_masks = question.cuda(device), attn_masks.cuda(device)
-                answer, tgt_mask = answer.cuda(device), tgt_mask.cuda(device)
-
-            tgt_input = answer[:,:-1]
-            tgt_output = answer[:,1:]
-
-            logits = model(question, attn_masks, tgt_input, tgt_mask)
 
             #Computing loss
-            loss = criterion(logits, tgt_output)
+            logits = model(batch.src, batch.src_mask, batch.trg, batch.trg_mask)
+            loss = criterion(logits, batch.trg_y)
 
             #Backpropagating the gradients
             loss.backward()
@@ -95,14 +84,14 @@ def train_val(device, model, vocab, train_loader, val_loader, criterion, opti, s
             opti.step()
 
             if (step + 1) % print_every == 0:
-                acc = get_accuracy(logits, tgt_output, vocab.token_to_idx['[PAD]'])
-                avg_loss = loss.item() / question.shape[0]
+                acc = get_accuracy(logits, batch.trg_y, vocab.token_to_idx['[PAD]'])
+                avg_loss = loss.item() / batch.src.shape[0]
                 write_summary(writer, {'loss': avg_loss, 'acc': acc, 'lr': opti._rate}, step+1)
 
                 print("Iteration {} of epoch {} complete. Loss : {} Accuracy : {}".format(step+1, epoch+1, avg_loss, acc))
-                print('Q: '+''.join([vocab.idx_to_token[idx] for idx in question[0]]))
+                print('Q: '+''.join([vocab.idx_to_token[idx] for idx in batch.src[0]]))
                 print('logits A: '+''.join([vocab.idx_to_token[idx] for idx in torch.argmax(logits, dim=2)[0]]))
-                print('target A: '+''.join([vocab.idx_to_token[idx] for idx in tgt_output[0]]))
+                print('target A: '+''.join([vocab.idx_to_token[idx] for idx in batch.trg_y[0]]))
 
             if (step + 1) % args.save_every == 0:
                 avg_loss, acc = evaluation(device, model, vocab, val_loader, criterion)

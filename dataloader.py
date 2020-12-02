@@ -3,7 +3,6 @@ from torch.utils.data import Dataset
 from gluonnlp.data import SentencepieceTokenizer
 from kobert.utils import get_tokenizer
 import pandas as pd
-from utils import subsequent_mask
 
 
 def padding_tokens(tokens, maxlen):
@@ -49,9 +48,4 @@ class QnADataset(Dataset):
         aids = [self.vocab.token_to_idx[t] for t in atoks]
         aids_tensor = torch.tensor(aids) #Converting the list to a pytorch tensor
 
-        #Obtaining the attention mask i.e a tensor containing 1s for no padded tokens and 0s for padded ones
-        attn_mask = (qids_tensor != self.vocab.token_to_idx['[PAD]']).long()
-        tgt_mask = torch.squeeze(subsequent_mask(self.maxlen))
-
-        # seq, attn_masks, tgt, tgt_mask
-        return qids_tensor, attn_mask, aids_tensor, tgt_mask
+        return qids_tensor, aids_tensor
