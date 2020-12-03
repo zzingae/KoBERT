@@ -38,9 +38,23 @@ class QnADataset(Dataset):
         qtoks = self.sp(question)
         atoks = self.sp(answer)
 
-        qtoks = padding_tokens(qtoks, self.maxlen)
-        # +1 for including 'CLS' token which stands for starting token (zzingae)
-        atoks = padding_tokens(atoks, self.maxlen+1)
+        qtoks = ['[CLS]'] + qtoks
+        # qtoks = padding_tokens(qtoks, self.maxlen)
+        if len(qtoks) < self.maxlen:
+            qtoks += ['[PAD]']*(self.maxlen - len(qtoks))
+        else:
+            qtoks = qtoks[:self.maxlen]
+
+        # tgt=['▁차', '근', '차', '근', '▁계획을', '▁세워', '보', '세요', '.', '[SEP]', '[PAD]']
+        # inp=['[SEP]', '▁차', '근', '차', '근', '▁계획을', '▁세워', '보', '세요', '.', '[SEP]']
+        # 마지막의 [PAD] 부분은 loss 계산에서 제외됨.
+        atoks = ['[SEP]'] + atoks
+        # atoks = padding_tokens(atoks, self.maxlen+1)
+        if len(atoks) < self.maxlen:
+            atoks += ['[SEP]']
+            atoks += ['[PAD]']*(self.maxlen+1 - len(atoks))
+        else:
+            atoks = atoks[:self.maxlen] + ['[SEP]']
 
         qids = [self.vocab.token_to_idx[t] for t in qtoks]
         qids_tensor = torch.tensor(qids) #Converting the list to a pytorch tensor
