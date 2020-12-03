@@ -58,35 +58,38 @@ class Chatbot(nn.Module):
             if p.dim() > 1:
                 nn.init.xavier_uniform(p)
 
-    def forward(self, seq, attn_masks, tgt, tgt_mask):
+    def forward(self, seq, attn_masks, tgt, tgt_mask, vocab, maxlen, use_teacher_forcing):
+        if not use_teacher_forcing:
+            output = self.greedy_decode(seq, attn_masks, maxlen, vocab)
+            return output[0]
         # required attn_masks shape for BERT: [batch_size,sequence_length] (zzingae)
         cont_reps, _ = self.bert(seq, attention_mask = attn_masks)
         # required attn_masks shape for decoder: [batch_size,1,sequence_length] (zzingae)
         attn_masks = attn_masks.unsqueeze(1)
-
         # attention score: [Batch, Head, tgt_length, src_length]
         output = self.decoder(self.tgt_embed(tgt), cont_reps, attn_masks, tgt_mask)
         return self.generator(output)
 
     def greedy_decode(self, seq, attn_masks, max_len, vocab):
         start_symbol = vocab.token_to_idx['[CLS]']
-        end_symbol = vocab.token_to_idx['[SEP]']
+        # end_symbol = vocab.token_to_idx['[SEP]']
 
         # required attn_masks shape for BERT: [batch_size,sequence_length] (zzingae)
         cont_reps, _ = self.bert(seq, attention_mask = attn_masks)
         # required attn_masks shape for decoder: [batch_size,1,sequence_length] (zzingae)
         attn_masks = attn_masks.unsqueeze(1)
         
-        ys = torch.ones(1, 1).fill_(start_symbol).type_as(seq.data)
-        for i in range(max_len-1):
-            tgt_mask = subsequent_mask(ys.size(1)).type_as(seq.data)
-            output = self.decoder(self.tgt_embed(ys), cont_reps, attn_masks, Variable(tgt_mask))
-            log_prob = self.generator(output)
+        ys = torch.ones(seq.shape[0], 1).fill_(start_symbol).type_as(seq.data)
+        for i in range(max_len):
+            tgt_mask = subsequent_mask(ys.shape[1]).repeat(seq.shape[0],1,1).type_as(seq.data)
+            output = self.decoder(self.tgt_embed(ys), cont_reps, attn_masks, tgt_mask)
+            log_prob = self.generator(output[:,-1,:])
 
-            _, next_word = torch.max(log_prob, dim = 2)
+            _, next_word = torch.max(log_prob, dim = 1)
             
-            if next_word[0,i]==end_symbol:
-                return ys
-            else:
-                ys = torch.cat([ys, torch.ones(1, 1).type_as(seq.data).fill_(next_word[0,i])], dim=1)
-        return ys
+            # ys = torch.cat([ys, torch.ones(seq.shape[0], 1).type_as(seq.data).fill_(next_word[0,i])], dim=1)
+            ys = torch.cat([ys,next_word.unsqueeze(1)], dim=1)
+            if i==(max_len-1):
+                logits = self.generator(output)
+
+        return logits, ys

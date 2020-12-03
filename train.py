@@ -7,6 +7,7 @@ from dataloader import QnADataset
 from utils import *
 # from nltk.translate.bleu_score import sentence_bleu
 import argparse
+import random
 
 
 def get_accuracy(logits, labels, pad_id):
@@ -36,7 +37,7 @@ def write_summary(writer, values, step):
     writer.add_scalar(name+"Loss", values['loss'], step)
     writer.add_scalar(name+"Accuracy", values['acc'], step)
 
-def evaluation(device, model, vocab, val_loader, criterion):
+def evaluation(device, model, vocab, val_loader, criterion, args):
 
     # model.eval() will notify all your layers that you are in eval mode, 
     # that way, batchnorm or dropout layers will work in eval mode instead of training mode.
@@ -55,7 +56,8 @@ def evaluation(device, model, vocab, val_loader, criterion):
                 batch.trg_y = batch.trg_y.cuda(device)
 
             #Obtaining the log_prob after log_softmax (zzingae)
-            logits = model(batch.src, batch.src_mask, batch.trg, batch.trg_mask)
+            logits = model(batch.src, batch.src_mask, batch.trg, batch.trg_mask, 
+                           vocab, args.maxlen, use_teacher_forcing=False)
 
             #accumulate loss and accuracy (zzingae)
             avg_loss += (criterion(logits, batch.trg_y) / batch.ntokens) * batch.src.shape[0]
@@ -83,8 +85,11 @@ def train_val(device, model, vocab, train_loader, val_loader, criterion, opti, s
                 batch.trg, batch.trg_mask = batch.trg.cuda(device), batch.trg_mask.cuda(device)
                 batch.trg_y = batch.trg_y.cuda(device)
 
+            use_teacher_forcing = True if random.random() < args.teacher_forcing_ratio else False
+
             #Computing loss
-            logits = model(batch.src, batch.src_mask, batch.trg, batch.trg_mask)
+            logits = model(batch.src, batch.src_mask, batch.trg, batch.trg_mask, 
+                           vocab, args.maxlen, use_teacher_forcing)
             loss = criterion(logits, batch.trg_y) / batch.ntokens
             #Backpropagating the gradients
             loss.backward()
@@ -98,11 +103,12 @@ def train_val(device, model, vocab, train_loader, val_loader, criterion, opti, s
 
                 print("Iteration {} of epoch {} complete. Loss : {} Accuracy : {}".format(step+1, epoch+1, loss, acc))
                 print('Q: '+''.join([vocab.idx_to_token[idx] for idx in batch.src[0]]))
+                print('teacher forced? : {}'.format(use_teacher_forcing))
                 print('logits A: '+''.join([vocab.idx_to_token[idx] for idx in torch.argmax(logits, dim=2)[0]]))
                 print('target A: '+''.join([vocab.idx_to_token[idx] for idx in batch.trg_y[0]]))
 
             if (step + 1) % args.save_every == 0:
-                avg_loss, acc = evaluation(device, model, vocab, val_loader, criterion)
+                avg_loss, acc = evaluation(device, model, vocab, val_loader, criterion, args)
                 save_ckpt(model, opti, step+1, epoch+1, save_path)
                 write_summary(writer, {'loss': avg_loss, 'acc': acc}, step+1)
                 print("Evaluation {} complete. Loss : {} Accuracy : {}".format(step+1, avg_loss, acc))
