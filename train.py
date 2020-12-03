@@ -129,6 +129,7 @@ if __name__ == "__main__":
     parser.add_argument('--max_epochs', type=int, default=1000) # due to small number of training data, number of epochs set to be large.
     parser.add_argument('--warmup_steps', type=int, default=4000) # due to small number of training data, number of epochs set to be large.
     
+    parser.add_argument('--teacher_forcing_ratio', type=float, default=0.5)
     parser.add_argument('--label_smoothing', type=float, default=0.4)
     parser.add_argument('--train_portion', type=float, default=0.7) # training data: 8377 if 0.7
     parser.add_argument('--learning_rate', type=float, default=1.0)
