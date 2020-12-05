@@ -102,7 +102,7 @@ class LabelSmoothing(nn.Module):
         # put confidence to target positions (zzingae)
         true_dist.scatter_(2, target.data.unsqueeze(2), self.confidence)
         # model should not predict padding token (zzingae)
-        true_dist[:, self.padding_idx] = 0
+        true_dist[:, :, self.padding_idx] = 0
         # return padded indices in target (zzingae)
         mask = torch.nonzero(target.data == self.padding_idx)
         if mask.dim() > 0:
