@@ -124,19 +124,21 @@ if __name__ == "__main__":
     parser.add_argument('--data_path', type=str, default='./data/ChatBotData.csv')
     parser.add_argument('--num_decoder_layers', type=int, default=3)
     parser.add_argument('--maxlen', type=int, default=25)
-    parser.add_argument('--batch_size', type=int, default=2500)
+    parser.add_argument('--batch_size', type=int, default=256)
     parser.add_argument('--num_workers', type=int, default=10)
     parser.add_argument('--max_epochs', type=int, default=1000) # due to small number of training data, number of epochs set to be large.
     parser.add_argument('--warmup_steps', type=int, default=4000) # due to small number of training data, number of epochs set to be large.
     
     parser.add_argument('--teacher_forcing_ratio', type=float, default=0.5)
+    parser.add_argument('--use_emotion', type=str, default='False')
+
     parser.add_argument('--label_smoothing', type=float, default=0.4)
     parser.add_argument('--train_portion', type=float, default=0.7) # training data: 8377 if 0.7
     parser.add_argument('--learning_rate', type=float, default=1.0)
-    parser.add_argument('--save_every', type=int, default=500)
+    parser.add_argument('--save_every', type=int, default=10000)
 
     args = parser.parse_args()
-    
+
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print("Device: {}".format(device))
 
@@ -149,11 +151,11 @@ if __name__ == "__main__":
     model = nn.DataParallel(model.to(device))
     criterion = LabelSmoothing(len(vocab), vocab.token_to_idx['[PAD]'], smoothing=args.label_smoothing)
 
-    dataset = QnADataset(args.data_path, vocab, args.maxlen)
+    dataset = QnADataset(args.data_path, vocab, args.maxlen, use_emotion = args.use_emotion)
     train_val_ratio = [int(len(dataset)*args.train_portion)+1, int(len(dataset)*(1-args.train_portion))]
     train_set, val_set = random_split(dataset, train_val_ratio)
     # Creating instances of training and validation dataloaders
-    train_loader = DataLoader(train_set, batch_size = args.batch_size, shuffle=True, num_workers = args.num_workers)
-    val_loader = DataLoader(val_set, batch_size = args.batch_size, num_workers = args.num_workers)
+    train_loader = DataLoader(train_set, args.batch_size, num_workers = args.num_workers, shuffle=True)
+    val_loader = DataLoader(val_set, args.batch_size, num_workers = args.num_workers)
 
     train_val(device, model, vocab, train_loader, val_loader, criterion, opti, save_path='./output', args=args)

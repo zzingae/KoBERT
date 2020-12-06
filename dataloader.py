@@ -15,7 +15,7 @@ def padding_tokens(tokens, maxlen):
 
 
 class QnADataset(Dataset):
-    def __init__(self, filename, vocab, maxlen):
+    def __init__(self, filename, vocab, maxlen, use_emotion):
 
         #Store the contents of the file in a pandas dataframe
         self.df = pd.read_csv(filename, header=0, encoding='utf-8')
@@ -23,6 +23,7 @@ class QnADataset(Dataset):
         self.sp = SentencepieceTokenizer(get_tokenizer())
         self.vocab = vocab
         self.maxlen = maxlen
+        self.use_emotion = use_emotion
 
         self.sp.tokens.index('!')
     def __len__(self):
@@ -33,9 +34,20 @@ class QnADataset(Dataset):
         #Selecting the sentence and label at the specified index in the data frame
         question = self.df.loc[index, 'Q']
         answer = self.df.loc[index, 'A']
-        # label = self.df.loc[index, 'label']
+        emotion = self.df.loc[index, 'label']
 
-        qtoks = self.sp(question)
+        if self.use_emotion=='True':
+            # 일상다반서 0, 이별(부정) 1, 사랑(긍정) 2로 레이블링
+            if emotion==0:
+                emotion_word = '일상 '
+            elif emotion==1: # self.sp('이별') --> ['▁이', '별']
+                emotion_word = '부정 '
+            else:
+                emotion_word = '사랑 '
+            qtoks = self.sp(emotion_word + question)
+        else:
+            qtoks = self.sp(question)
+
         atoks = self.sp(answer)
 
         qtoks = ['[CLS]'] + qtoks
