@@ -30,7 +30,8 @@ def get_bleu_score(output, labels, vocab):
 
         hypothesis = [vocab.idx_to_token[n] for n in out]
         reference = [vocab.idx_to_token[n] for n in lbs]
-        bleu += sentence_bleu(reference, hypothesis)
+        # unigram and bigram BLEU
+        bleu += sentence_bleu(reference, hypothesis, (0.5,0.5,0,0))
 
     return bleu / output.shape[0]
 
@@ -63,8 +64,7 @@ def evaluation(device, model, vocab, val_loader, criterion, args):
     # It will reduce memory usage and speed up computations but you won’t be able to backprop.
     avg_loss = 0
     with torch.no_grad():
-        for i, (sources, targets) in enumerate(val_loader):
-            if i > 4: break
+        for _, (sources, targets) in enumerate(val_loader):
             batch =  Batch(sources, targets, vocab.token_to_idx['[PAD]'])
 
             if not device.type=='cpu':
