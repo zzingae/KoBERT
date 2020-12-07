@@ -8,14 +8,31 @@ from utils import *
 # from nltk.translate.bleu_score import sentence_bleu
 import argparse
 import random
+from nltk.translate.bleu_score import sentence_bleu
 
 
-def get_accuracy(logits, labels, pad_id):
-    output = torch.argmax(logits, dim=2)
+def get_accuracy(output, labels, pad_id):
     valid_pos = labels!=pad_id
     valid_num = valid_pos.sum().float()
     valid_sum = (valid_pos*(output==labels)).sum().float()
     return valid_sum / valid_num
+
+def get_bleu_score(output, labels, vocab):
+    bleu=0
+    eos_id = vocab.token_to_idx['[SEP]']
+    for i in range(output.shape[0]):
+        lbs = labels[i].tolist()
+        out = output[i].tolist()
+
+        lbs = lbs[:lbs.index(eos_id)]
+        if eos_id in out:
+            out = out[:out.index(eos_id)]
+
+        hypothesis = [vocab.idx_to_token[n] for n in out]
+        reference = [vocab.idx_to_token[n] for n in lbs]
+        bleu += sentence_bleu(reference, hypothesis)
+
+    return bleu / output.shape[0]
 
 def save_ckpt(model, opti, step, epoch, save_path):
     state = {
@@ -45,9 +62,9 @@ def evaluation(device, model, vocab, val_loader, criterion, args):
     # torch.no_grad() impacts the autograd engine and deactivate it. 
     # It will reduce memory usage and speed up computations but you won’t be able to backprop.
     avg_loss = 0
-    avg_acc = 0
     with torch.no_grad():
-        for _, (sources, targets) in enumerate(val_loader):
+        for i, (sources, targets) in enumerate(val_loader):
+            if i > 4: break
             batch =  Batch(sources, targets, vocab.token_to_idx['[PAD]'])
 
             if not device.type=='cpu':
@@ -60,11 +77,22 @@ def evaluation(device, model, vocab, val_loader, criterion, args):
                            vocab, args.maxlen, use_teacher_forcing=False)
 
             #accumulate loss and accuracy (zzingae)
+            output = torch.argmax(logits, dim=2)
+            if avg_loss==0:
+                outputs = output
+                trg_ys = batch.trg_y
+            else: 
+                outputs = torch.cat([outputs,output], dim=0)
+                trg_ys = torch.cat([trg_ys,batch.trg_y], dim=0)
+
             avg_loss += (criterion(logits, batch.trg_y) / batch.ntokens) * batch.src.shape[0]
-            avg_acc += get_accuracy(logits, batch.trg_y, vocab.token_to_idx['[PAD]']) * batch.src.shape[0]
+
+        avg_loss /= len(val_loader.dataset)
+        avg_acc = get_accuracy(outputs, trg_ys, vocab.token_to_idx['[PAD]'])
+        avg_bleu = get_bleu_score(outputs, trg_ys, vocab)
 
     model.train()
-    return avg_loss/len(val_loader.dataset), avg_acc/len(val_loader.dataset)
+    return avg_loss, avg_acc, avg_bleu
 
 def train_val(device, model, vocab, train_loader, val_loader, criterion, opti, save_path, args):
 
@@ -98,7 +126,8 @@ def train_val(device, model, vocab, train_loader, val_loader, criterion, opti, s
             opti.step()
 
             if (step + 1) % print_every == 0:
-                acc = get_accuracy(logits, batch.trg_y, vocab.token_to_idx['[PAD]'])
+                output = torch.argmax(logits, dim=2)
+                acc = get_accuracy(output, batch.trg_y, vocab.token_to_idx['[PAD]'])
                 write_summary(writer, {'loss': loss, 'acc': acc, 'lr': opti._rate}, step+1)
 
                 print("Iteration {} of epoch {} complete. Loss : {} Accuracy : {}".format(step+1, epoch+1, loss, acc))
@@ -108,10 +137,10 @@ def train_val(device, model, vocab, train_loader, val_loader, criterion, opti, s
                 print('target A: '+''.join([vocab.idx_to_token[idx] for idx in batch.trg_y[0]]))
 
             if (step + 1) % args.save_every == 0:
-                avg_loss, acc = evaluation(device, model, vocab, val_loader, criterion, args)
+                avg_loss, acc, bleu = evaluation(device, model, vocab, val_loader, criterion, args)
                 save_ckpt(model, opti, step+1, epoch+1, save_path)
-                write_summary(writer, {'loss': avg_loss, 'acc': acc}, step+1)
-                print("Evaluation {} complete. Loss : {} Accuracy : {}".format(step+1, avg_loss, acc))
+                write_summary(writer, {'loss': avg_loss, 'acc': acc, 'bleu': bleu}, step+1)
+                print("Evaluation {} complete. Loss : {} Accuracy : {} BLEU : {}".format(step+1, avg_loss, acc, bleu))
 
             step += 1
             
@@ -135,7 +164,7 @@ if __name__ == "__main__":
     parser.add_argument('--label_smoothing', type=float, default=0.4)
     parser.add_argument('--train_portion', type=float, default=0.7) # training data: 8377 if 0.7
     parser.add_argument('--learning_rate', type=float, default=1.0)
-    parser.add_argument('--save_every', type=int, default=10000)
+    parser.add_argument('--save_every', type=int, default=5000)
 
     args = parser.parse_args()
 
