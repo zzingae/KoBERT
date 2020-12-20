@@ -18,6 +18,13 @@ KoBERT (encoder)를 freeze 후, Transformer decoder를 질문/답변 데이터�
 - KoBERT의 학습된 input embedding으로 output embedding과 softmax weights를 초기화
 - output embedding는 freeze 하고, 나머지 Transformer decoder의 weight를 학습
 
+KoBERT 사용 후, validation accuracy 10% 상승
+
+학습 시 50% 확률로 Teacher forcing을 사용하지 않았을 때, validation accuracy 9% 상승
+
+Decoder layer 개수를 3개에서 6개로 늘렸을 때, validation accuracy 2% 상승
+
+
 ### 추론 및 attention visualization
 
 <p align="center"> 
