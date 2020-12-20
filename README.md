@@ -14,6 +14,8 @@ https://github.com/songys/Chatbot_data
 
 ### 학습 (fine-tuning)
 
+`python train.py`
+
 KoBERT (encoder)를 freeze 후, Transformer decoder를 질문/답변 데이터셋으로 fine-tuning
 - KoBERT의 학습된 input embedding으로 output embedding과 softmax weights를 초기화
 - output embedding는 freeze 하고, 나머지 Transformer decoder의 weight를 학습
@@ -26,6 +28,8 @@ Decoder layer 개수를 3개에서 6개로 늘렸을 때, validation accuracy 2%
 
 
 ### 추론 및 attention visualization
+
+`scripts/prediction_notebook.ipynb`
 
 <p align="center"> 
 <img src="./imgs/attention_visualization.png" alt="drawing" width="600"/> 
