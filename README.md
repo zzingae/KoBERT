@@ -28,7 +28,7 @@ Decoder layer 개수를 3개에서 6개로 늘렸을 때, validation accuracy 2%
 ### 추론 및 attention visualization
 
 <p align="center"> 
-<img src="./imgs/attention.png" alt="drawing" width="600"/> 
+<img src="./imgs/attention_visualization.png" alt="drawing" width="600"/> 
 </p>
 
 ### 참고
